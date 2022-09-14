@@ -66,7 +66,7 @@ server = Server(ocr=args.ocr, det=args.det, old=args.old)
 
 def get_img(request, img_type='file', img_name='image'):
     if img_type == 'b64':
-        try
+        try:
             dic = json.loads(request.get_data())
             img_base64 = dic.get(img_name)
             if 'base64,' in img_base64:
