@@ -66,11 +66,13 @@ server = Server(ocr=args.ocr, det=args.det, old=args.old)
 
 def get_img(request, img_type='file', img_name='image'):
     if img_type == 'b64':
-        img = base64.b64decode(request.get_data()) # 
-        try: # json str of multiple images
-            dic = json.loads(img)
-            img = base64.b64decode(dic.get(img_name).encode())
-        except Exception as e: # just base64 of single image
+        try
+            dic = json.loads(request.get_data())
+            img_base64 = dic.get(img_name)
+            if 'base64,' in img_base64:
+                img_base64 = img_base64.split('base64,')[1]
+            img = base64.b64decode(img_base64)
+        except Exception as e:  # just base64 of single image
             pass
     else:
         img = request.files.get(img_name).read()
