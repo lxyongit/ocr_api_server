@@ -3,7 +3,8 @@ import argparse
 import base64
 import json
 import cv2
-
+import time
+import os
 import ddddocr
 from flask import Flask, request
 
@@ -13,12 +14,16 @@ parser.add_argument("--ocr", action="store_true", help="开启ocr识别")
 parser.add_argument("--old", action="store_true", help="OCR是否启动旧模型")
 parser.add_argument("--det", action="store_true", help="开启目标检测")
 
+imgsPath = 'temp'
+if not os.path.exists(imgsPath):
+    os.mkdir(imgsPath)
+
 args = parser.parse_args()
 
 app = Flask(__name__)
 
 class SlideCrack(object):
-    def __init__(self, gap, bg, out):
+    def __init__(self, gap, bg, out = ''):
         """
         init code
         :param gap: 缺口图片
@@ -68,7 +73,9 @@ class SlideCrack(object):
         # (0,0,255)：矩形边框颜色
         # 1：矩形边框大小
         cv2.rectangle(target, tl, br, (0, 0, 255), 2)
-        cv2.imwrite(self.out, target)
+        print('out', self.out)
+        if not self.out == '':
+            cv2.imwrite(self.out, target)
         return tl[0]
 
     @staticmethod
@@ -88,7 +95,7 @@ class SlideCrack(object):
         back_pic = cv2.cvtColor(back, cv2.COLOR_GRAY2RGB)
         x = self.template_match(slide_pic, back_pic)
         # 输出横坐标, 即 滑块在图片上的位置
-        print(x)
+        # print(x)
         return x
 
 
@@ -168,6 +175,9 @@ def set_ret(result, ret_type='text'):
         else:
             return str(result).strip()
 
+def getImgFullTempPath(base):
+    timeStr = str(time.time())
+    return imgsPath + '/' + base + '_' + timeStr + '.png'
 
 @app.route('/<opt>/<img_type>', methods=['POST'])
 @app.route('/<opt>/<img_type>/<ret_type>', methods=['POST'])
@@ -188,19 +198,24 @@ def ocr(opt, img_type='file', ret_type='text'):
 @app.route('/slide/<algo_type>/<img_type>/<ret_type>', methods=['POST'])
 def slide(algo_type='compare', img_type='file', ret_type='text'):
     try:
+        
         target_img = get_img(request, img_type, 'target_img')
-        target_img_path = 'imgs/target_img.png'
+        target_img_path = getImgFullTempPath('target')
+        
         bg_img = get_img(request, img_type, 'bg_img')
-        bg_img_path = 'imgs/bg_img.png'
+        bg_img_path = getImgFullTempPath('bg')
+        print(target_img_path, bg_img_path)
         with open(target_img_path, 'wb') as f:
             f.write(target_img)
         with open(bg_img_path, 'wb') as f:
             f.write(bg_img)
         
         # result = server.slide(target_img, bg_img, algo_type)
-        sc = SlideCrack(target_img_path, bg_img_path, 'imgs/result.png')
-        
-        return set_ret(sc.discern(), ret_type)
+        sc = SlideCrack(target_img_path, bg_img_path)
+        result = sc.discern()
+        os.remove(bg_img_path)
+        os.remove(target_img_path) 
+        return set_ret(result, ret_type)
     except Exception as e:
         return set_ret(e, ret_type)
 
